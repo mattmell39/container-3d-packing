@@ -39,11 +39,23 @@ button{cursor:pointer;padding:6px 10px;border-radius:6px;border:none;font-weight
 </div>
 
 <div class="card">
-<h2>Blocchi</h2>
-<div id="blocksList" class="blocks-list"></div>
-<button id="addBlock" style="margin-top:6px">+ Aggiungi blocco</button>
-<button id="seed20" style="margin-top:6px">20 blocchi di esempio</button>
+  <h2>Blocchi</h2>
+
+  <!-- intestazioni colonne -->
+  <div class="block-item" style="font-weight:bold; opacity:0.8">
+    <div>ID</div>
+    <div>Lunghezza (cm)</div>
+    <div>Larghezza (cm)</div>
+    <div>Altezza (cm)</div>
+    <div>Peso (t)</div>
+    <div></div>
+  </div>
+
+  <div id="blocksList" class="blocks-list"></div>
+  <button id="addBlock" style="margin-top:6px">+ Aggiungi blocco</button>
+  <button id="seed20" style="margin-top:6px">20 blocchi di esempio</button>
 </div>
+
 
 <div class="card">
 <h2>Monte Carlo</h2>
