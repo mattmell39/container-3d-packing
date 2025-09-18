@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Packing 3D Monte Carlo con gravità</title>
+<style>
+body{margin:0;font-family:system-ui, sans-serif;background:#0f172a;color:#e2e8f0;padding:20px}
+h1{font-size:22px;margin-bottom:10px}
+.card{background:#1e293b;border-radius:10px;padding:16px;margin-bottom:16px}
+label{display:block;font-size:13px;color:#94a3b8;margin-bottom:4px}
+input{width:100%;padding:8px;border-radius:6px;border:1px solid #334155;background:#0f172a;color:#f8fafc;margin-bottom:4px}
+.row{display:flex;gap:10px;margin-bottom:8px}
+.col{flex:1}
+.blocks-list{display:flex;flex-direction:column;gap:8px;max-height:300px;overflow:auto}
+.block-item{display:grid;grid-template-columns:50px repeat(4,1fr) 80px;gap:6px;align-items:end}
+button{cursor:pointer;padding:6px 10px;border-radius:6px;border:none;font-weight:600;background:#38bdf8;color:#0f172a}
+.result{background:#0f172a;border-radius:8px;padding:12px;margin-top:12px;white-space:pre-wrap;font-family:monospace}
+.progress-container{background:#334155;border-radius:6px;overflow:hidden;margin-top:10px}
+.progress-bar{height:16px;background:#38bdf8;width:0%;transition:width 0.1s;}
+</style>
+</head>
+<body>
+
+<h1>Software per la Dea Valentina</h1>
+<h3>(poi il titolo lo cambiamo!!!)
+
+<div class="card">
+<h2>Dimensioni container</h2>
+<div class="row">
+<div class="col"><label>Lunghezza (cm)</label><input id="contL" type="number" value="600"></div>
+<div class="col"><label>Larghezza (cm)</label><input id="contW" type="number" value="230"></div>
+<div class="col"><label>Altezza (cm)</label><input id="contH" type="number" value="230"></div>
+</div>
+<div class="row">
+<div class="col"><label>Margine (cm)</label><input id="margin" type="number" value="10"></div>
+<div class="col"><label>Peso max (t)</label><input id="maxWeight" type="number" value="27"></div>
+</div>
+</div>
+
+<div class="card">
+<h2>Blocchi</h2>
+<div id="blocksList" class="blocks-list"></div>
+<button id="addBlock" style="margin-top:6px">+ Aggiungi blocco</button>
+<button id="seed20" style="margin-top:6px">20 blocchi di esempio</button>
+</div>
+
+<div class="card">
+<h2>Monte Carlo</h2>
+<label>Numero simulazioni: <span id="simCountLabel">100</span></label>
+<input type="range" id="simCount" min="10" max="1000" value="100">
+<div class="progress-container">
+  <div class="progress-bar" id="progressBar"></div>
+</div>
+</div>
+
+<button id="computeBtn">Calcola packing 3D (Monte Carlo)</button>
+<div id="result" class="result">Premi "Calcola packing 3D" per vedere i risultati.</div>
+
+<script>
+let blockCounter=0;
+const blocksList = document.getElementById('blocksList');
+
+function makeBlockRow(b){
+  const row = document.createElement('div'); 
+  row.className='block-item';
+  row.dataset.blockId=b.id;
+  const idDiv = document.createElement('div'); idDiv.textContent = 'B'+b.id;
+  const lInput = document.createElement('input'); lInput.type='number'; lInput.value=b.l;
+  const wInput = document.createElement('input'); wInput.type='number'; wInput.value=b.w;
+  const hInput = document.createElement('input'); hInput.type='number'; hInput.value=b.h;
+  const wtInput = document.createElement('input'); wtInput.type='number'; wtInput.value=b.wt;
+  const removeBtn = document.createElement('button'); removeBtn.textContent='Rimuovi';
+  removeBtn.onclick = ()=>row.remove();
+  row.append(idDiv, lInput, wInput, hInput, wtInput, removeBtn);
+  return row;
+}
+
+function addBlock(l=100,w=100,h=100,wt=1){
+  blockCounter++;
+  const b={id:blockCounter,l:parseInt(l),w:parseInt(w),h:parseInt(h),wt:parseFloat(wt)};
+  blocksList.appendChild(makeBlockRow(b));
+}
+
+function readBlocks(){
+  return [...blocksList.querySelectorAll('.block-item')].map(r=>{
+    const [l,w,h,wt]=[...r.querySelectorAll('input')].map(i=>+i.value);
+    return {id:+r.dataset.blockId,l,w,h,wt};
+  });
+}
+
+// genera 20 blocchi di esempio con le nuove dimensioni
+function seed20(){
+  blocksList.innerHTML='';
+  blockCounter=0;
+  for(let i=0;i<20;i++){
+    const l = 50 + Math.floor(Math.random()*111);   // 50-160 cm
+    const w = 50 + Math.floor(Math.random()*111);   // 50-160 cm
+    const h = 100 + Math.floor(Math.random()*251);  // 100-350 cm
+    const wt = (2 + Math.random()*6).toFixed(2);    // 2-8 t
+    addBlock(l,w,h,wt);
+  }
+}
+
+document.getElementById('addBlock').onclick = ()=>addBlock();
+document.getElementById('seed20').onclick = seed20;
+seed20();
+
+const simSlider = document.getElementById('simCount');
+const simLabel = document.getElementById('simCountLabel');
+simSlider.oninput = ()=>simLabel.textContent = simSlider.value;
+const progressBar = document.getElementById('progressBar');
+
+function rotations(b){ return [[b.l,b.w,b.h],[b.l,b.h,b.w],[b.w,b.l,b.h],[b.w,b.h,b.l],[b.h,b.l,b.w],[b.h,b.w,b.l]]; }
+function shuffle(array){ for(let i=array.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [array[i], array[j]]=[array[j], array[i]]; } }
+
+function packContainerWithGravity(containerDims, maxWeight, blocks){
+  const placed=[]; 
+  let usedWeight=0, usedVol=0;
+  const freeSpaces=[{x:0,y:0,z:0,dx:containerDims.L,dy:containerDims.W,dz:containerDims.H}];
+
+  function canPlaceAtZ(free, dz){
+    return free.z===0 || placed.some(p=>p.z+p.dz===free.z && 
+      p.x < free.x+free.dx && p.x+p.dx > free.x &&
+      p.y < free.y+free.dy && p.y+p.dy > free.y);
+  }
+
+  for(const b of blocks){
+    let ok=false;
+    for(let fi=0;fi<freeSpaces.length && !ok;fi++){
+      const f = freeSpaces[fi];
+      const rots = rotations(b).sort(()=>Math.random()-0.5);
+      for(const r of rots){
+        const [dx,dy,dz]=r;
+        if(!canPlaceAtZ(f,dz)) continue;
+        if(dx>f.dx || dy>f.dy || dz>f.dz) continue;
+        if(usedWeight+b.wt>maxWeight) continue;
+        placed.push({block:b,x:f.x,y:f.y,z:f.z,dx,dy,dz});
+        usedWeight+=b.wt; usedVol+=dx*dy*dz;
+        freeSpaces.splice(fi,1);
+        freeSpaces.push({x:f.x+dx,y:f.y,z:f.z,dx:f.dx-dx,dy:dy,dz:dz});
+        freeSpaces.push({x:f.x,y:f.y+dy,z:f.z,dx:dx,dy:f.dy-dy,dz:dz});
+        freeSpaces.push({x:f.x,y:f.y,z:f.z+dz,dx:dx,dy:dy,dz:f.dz-dz});
+        ok=true; break;
+      }
+    }
+  }
+
+  let maxX=0,maxY=0,maxZ=0;
+  for(const p of placed){ maxX=Math.max(maxX,p.x+p.dx); maxY=Math.max(maxY,p.y+p.dy); maxZ=Math.max(maxZ,p.z+p.dz); }
+  return {placed, usedWeight, usedVol, usedExtents:{L:maxX,W:maxY,H:maxZ}};
+}
+
+function monteCarloAsync(contDims, margin, maxWeight, blocks, simulations, callback){
+  const usable={L:contDims.L-2*margin,W:contDims.W-2*margin,H:contDims.H-2*margin};
+  let best=null;
+  let s=0;
+
+  function step(){
+    if(s>=simulations){ callback(best); return; }
+
+    let remaining = [...blocks];
+    shuffle(remaining);
+
+    const containers=[];
+    while(remaining.length>0){
+      const res=packContainerWithGravity(usable,maxWeight,remaining);
+      if(res.placed.length===0) break;
+      const placedIds=new Set(res.placed.map(p=>p.block.id));
+      remaining=remaining.filter(b=>!placedIds.has(b.id));
+      containers.push(res);
+    }
+
+    if(!best || containers.length<best.containers.length ||
+       (containers.length===best.containers.length && containers.reduce((a,c)=>a+c.usedVol,0) > best.containers.reduce((a,c)=>a+c.usedVol,0))){
+      best={containers, remaining};
+    }
+
+    s++;
+    progressBar.style.width=((s/simulations)*100)+'%';
+    setTimeout(step,0);
+  }
+
+  step();
+}
+
+document.getElementById('computeBtn').onclick=()=>{
+  const contDims={L:+document.getElementById('contL').value,W:+document.getElementById('contW').value,H:+document.getElementById('contH').value};
+  const margin=+document.getElementById('margin').value;
+  const maxWeight=+document.getElementById('maxWeight').value;
+  const blocks=readBlocks();
+  const sims=+simSlider.value;
+  progressBar.style.width='0%';
+  document.getElementById('result').textContent="Simulazioni in corso...";
+  monteCarloAsync(contDims,margin,maxWeight,blocks,sims,(res)=>{
+    const usableVol=(contDims.L-2*margin)*(contDims.W-2*margin)*(contDims.H-2*margin);
+    let out=`Blocchi totali: ${blocks.length}\nContainer necessari: ${res.containers.length}\n`;
+    if(res.remaining.length>0){
+      out+=`Impossibile posizionare ${res.remaining.length} blocchi: ${res.remaining.map(b=>'B'+b.id).join(', ')}\n`;
+    }
+    res.containers.forEach((c,i)=>{
+      const ids=c.placed.map(p=>'B'+p.block.id);
+      const percVol=(c.usedVol/usableVol*100).toFixed(1);
+      out+=`\nContainer ${i+1} — blocchi: ${c.placed.length}, peso: ${c.usedWeight.toFixed(2)} t, volume usato: ${c.usedVol.toLocaleString()} cm³ (${percVol}%)\n`;
+      const ext=c.usedExtents;
+      out+=`  Ingombro L×W×H: ${Math.round(ext.L)}×${Math.round(ext.W)}×${Math.round(ext.H)} cm\n`;
+      out+=`  IDs: ${ids.join(', ')}\n`;
+    });
+    document.getElementById('result').textContent=out;
+  });
+};
+</script>
+</body>
+</html>
