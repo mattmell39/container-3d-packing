@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Packing 3D Monte Carlo</title>
+<title>Packing 3D testuale</title>
 <style>
 body{margin:0;font-family:system-ui, sans-serif;background:#0f172a;color:#e2e8f0;padding:20px}
 h1{font-size:22px;margin-bottom:10px}
@@ -13,8 +13,10 @@ input{width:100%;padding:8px;border-radius:6px;border:1px solid #334155;backgrou
 .row{display:flex;gap:10px;margin-bottom:8px}
 .col{flex:1}
 .blocks-list{display:flex;flex-direction:column;gap:8px;max-height:300px;overflow:auto}
-.block-item{display:grid;grid-template-columns:50px repeat(4,1fr) 80px;gap:6px;align-items:end}
+.block-item{display:grid;grid-template-columns:60px repeat(4,1fr) 80px;gap:6px;align-items:end}
 button{cursor:pointer;padding:6px 10px;border-radius:6px;border:none;font-weight:600;background:#38bdf8;color:#0f172a}
+.progress-bar-container{background:#334155;border-radius:6px;overflow:hidden;margin-top:6px}
+.progress-bar{height:16px;background:#22c55e;width:0%}
 .result{background:#0f172a;border-radius:8px;padding:12px;margin-top:12px;white-space:pre-wrap;font-family:monospace}
 </style>
 </head>
@@ -37,96 +39,90 @@ button{cursor:pointer;padding:6px 10px;border-radius:6px;border:none;font-weight
 <div class="card">
   <h2>Blocchi</h2>
   <div class="row">
-    <div class="col">ID</div>
-    <div class="col">Lunghezza</div>
-    <div class="col">Larghezza</div>
-    <div class="col">Altezza</div>
-    <div class="col">Peso</div>
-    <div class="col">Rimuovi</div>
+    <div class="col"><strong>ID</strong></div>
+    <div class="col"><strong>Lunghezza</strong></div>
+    <div class="col"><strong>Larghezza</strong></div>
+    <div class="col"><strong>Altezza</strong></div>
+    <div class="col"><strong>Peso</strong></div>
+    <div class="col"></div>
   </div>
   <div id="blocksList" class="blocks-list"></div>
-  <button id="addBlock">+ Aggiungi blocco</button>
+  <button id="addBlock" style="margin-top:6px">+ Aggiungi blocco</button>
 </div>
 
-<div class="row" style="margin-top:6px">
-  <div class="col"><label>Numero massimo shuffle Monte Carlo</label><input id="maxShuffle" type="number" value="1000"></div>
+<div class="card">
+  <h2>Simulazione Monte Carlo</h2>
+  <div class="row">
+    <div class="col"><label>Numero simulazioni</label><input id="maxShuffle" type="number" value="1000"></div>
+  </div>
+  <div class="progress-bar-container">
+    <div id="progressBar" class="progress-bar"></div>
+  </div>
 </div>
 
-<button id="computeBtn">Calcola packing Monte Carlo</button>
-<div id="result" class="result">Premi "Calcola packing Monte Carlo" per vedere i risultati.</div>
+<button id="computeBtn">Calcola packing 3D</button>
+<div id="result" class="result">Premi "Calcola packing 3D" per vedere i risultati.</div>
 
 <script>
 let blockCounter=0;
 const blocksList = document.getElementById('blocksList');
+
+// blocchi hard-coded iniziali
 const initialBlocks=[
-{ id:3320, l:222,w:90,h:65,wt:3.03 },
-{ id:3321, l:235,w:152,h:127,wt:8.75 },
-{ id:3322, l:252,w:149,h:108,wt:8.89 },
-{ id:3323, l:223,w:167,h:64,wt:5.63 },
-{ id:3324, l:307,w:158,h:141,wt:15.26 },
-{ id:3325, l:235,w:157,h:168,wt:12.69 },
-{ id:3326, l:262,w:154,h:94,wt:7.71 },
-{ id:3327, l:260,w:148,h:100,wt:7.43 },
-{ id:3328, l:192,w:149,h:150,wt:9.85 },
-{ id:3329, l:274,w:146,h:163,wt:14.18 },
-{ id:3330, l:240,w:154,h:173,wt:13.82 },
-{ id:3331, l:268,w:146,h:133,wt:11.80 },
-{ id:3332, l:263,w:150,h:147,wt:12.99 },
-{ id:3333, l:226,w:163,h:90,wt:7.70 },
-{ id:3334, l:216,w:138,h:72,wt:4.71 },
-{ id:3335, l:233,w:159,h:123,wt:10.54 },
-{ id:3336, l:300,w:149,h:150,wt:14.19 },
-{ id:3337, l:306,w:106,h:115,wt:7.82 },
-{ id:3338, l:320,w:129,h:86,wt:8.14 },
-{ id:3339, l:253,w:149,h:132,wt:11.92 },
-{ id:3340, l:290,w:144,h:100,wt:5.76 },
-{ id:3341, l:314,w:160,h:160,wt:15.70 },
-{ id:3342, l:321,w:166,h:148,wt:16.33 },
-{ id:3343, l:200,w:157,h:103,wt:7.15 },
-{ id:3344, l:310,w:142,h:93,wt:9.46 },
-{ id:3345, l:222,w:134,h:107,wt:6.76 },
-{ id:3346, l:272,w:123,h:94,wt:6.52 }
+{id:3320, l:222,w:90,h:65,wt:3.03},{id:3321, l:235,w:152,h:127,wt:8.75},
+{id:3322, l:252,w:149,h:108,wt:8.89},{id:3323, l:223,w:167,h:64,wt:5.63},
+{id:3324, l:307,w:158,h:141,wt:15.26},{id:3325, l:235,w:157,h:168,wt:12.69},
+{id:3326, l:262,w:154,h:94,wt:7.71},{id:3327, l:260,w:148,h:100,wt:7.43},
+{id:3328, l:192,w:149,h:150,wt:9.85},{id:3329, l:274,w:146,h:163,wt:14.18},
+{id:3330, l:240,w:154,h:173,wt:13.82},{id:3331, l:268,w:146,h:133,wt:11.80},
+{id:3332, l:263,w:150,h:147,wt:12.99},{id:3333, l:226,w:163,h:90,wt:7.70},
+{id:3334, l:216,w:138,h:72,wt:4.71},{id:3335, l:233,w:159,h:123,wt:10.54},
+{id:3336, l:300,w:149,h:150,wt:14.19},{id:3337, l:306,w:106,h:115,wt:7.82},
+{id:3338, l:320,w:129,h:86,wt:8.14},{id:3339, l:253,w:149,h:132,wt:11.92},
+{id:3340, l:290,w:144,h:100,wt:5.76},{id:3341, l:314,w:160,h:160,wt:15.70},
+{id:3342, l:321,w:166,h:148,wt:16.33},{id:3343, l:200,w:157,h:103,wt:7.15},
+{id:3344, l:310,w:142,h:93,wt:9.46},{id:3345, l:222,w:134,h:107,wt:6.76},
+{id:3346, l:272,w:123,h:94,wt:6.52}
 ];
 
 function makeBlockRow(b){
   const row=document.createElement('div');
   row.className='block-item';
   row.dataset.blockId=b.id;
-  const idDiv=document.createElement('div'); idDiv.textContent='B'+b.id;
+  const idInput=document.createElement('input'); idInput.type='number'; idInput.value=b.id;
   const lInput=document.createElement('input'); lInput.type='number'; lInput.value=b.l;
   const wInput=document.createElement('input'); wInput.type='number'; wInput.value=b.w;
   const hInput=document.createElement('input'); hInput.type='number'; hInput.value=b.h;
   const wtInput=document.createElement('input'); wtInput.type='number'; wtInput.value=b.wt;
   const removeBtn=document.createElement('button'); removeBtn.textContent='Rimuovi';
   removeBtn.onclick=()=>row.remove();
-  row.append(idDiv,lInput,wInput,hInput,wtInput,removeBtn);
+  row.append(idInput,lInput,wInput,hInput,wtInput,removeBtn);
   return row;
 }
 
-function addBlock(l=100,w=100,h=100,wt=1){
+function addBlock(l=100,w=100,h=100,wt=1,id=null){
   blockCounter++;
-  const b={id:blockCounter,l:parseInt(l),w:parseInt(w),h:parseInt(h),wt:parseFloat(wt)};
+  const b={id:id??(3346+blockCounter),l:parseInt(l),w:parseInt(w),h:parseInt(h),wt:parseFloat(wt)};
   blocksList.appendChild(makeBlockRow(b));
 }
 
 function readBlocks(){
   return [...blocksList.querySelectorAll('.block-item')].map(r=>{
-    const [l,w,h,wt]=[...r.querySelectorAll('input')].map(i=>+i.value);
-    return {id:+r.dataset.blockId,l,w,h,wt};
+    const inputs = r.querySelectorAll('input');
+    const id = +inputs[0].value;
+    const l  = +inputs[1].value;
+    const w  = +inputs[2].value;
+    const h  = +inputs[3].value;
+    const wt = +inputs[4].value;
+    return {id,l,w,h,wt};
   });
 }
 
-function seedInitialBlocks(){
-  blocksList.innerHTML='';
-  blockCounter=0;
-  initialBlocks.forEach(b=>addBlock(b.l,b.w,b.h,b.wt));
-}
-seedInitialBlocks();
-document.getElementById('addBlock').onclick = ()=>addBlock();
+initialBlocks.forEach(b=>addBlock(b.l,b.w,b.h,b.wt,b.id));
 
-// --- Funzioni di packing 3D e Monte Carlo ---
+// Packing 3D
 function rotations(b){ return [[b.l,b.w,b.h],[b.l,b.h,b.w],[b.w,b.l,b.h],[b.w,b.h,b.l],[b.h,b.l,b.w],[b.h,b.w,b.l]]; }
-function fits(free,dims){ return dims[0]<=free.dx && dims[1]<=free.dy && dims[2]<=free.dz; }
+function fits(box,dims){ return dims[0]<=box.dx && dims[1]<=box.dy && dims[2]<=box.dz; }
 function splitFree(free,placed){
   const res=[]; const fx=free.x,fy=free.y,fz=free.z,fdx=free.dx,fdy=free.dy,fdz=free.dz;
   const bx=placed.dx,by=placed.dy,bz=placed.dz;
@@ -135,6 +131,7 @@ function splitFree(free,placed){
   if(fdz-bz>0) res.push({x:fx,y:fy,z:fz+bz,dx:bx,dy:by,dz:fdz-bz});
   return res;
 }
+
 function packContainer(containerDims,maxWeight,blocks){
   const freeList=[{x:0,y:0,z:0,dx:containerDims.L,dy:containerDims.W,dz:containerDims.H}];
   const placed=[]; let usedWeight=0;
@@ -165,6 +162,7 @@ function shuffleArray(arr){
   return a;
 }
 
+// Monte Carlo Packing
 document.getElementById('computeBtn').onclick=()=>{
   const contDims={L:+document.getElementById('contL').value,W:+document.getElementById('contW').value,H:+document.getElementById('contH').value};
   const margin=+document.getElementById('margin').value;
@@ -173,11 +171,15 @@ document.getElementById('computeBtn').onclick=()=>{
   const blocks=readBlocks();
   const pesoTot=blocks.reduce((a,b)=>a+b.wt,0);
   let nDesired=Math.ceil(pesoTot/maxWeight);
+  const minFill=0.75; // 75%
   let bestSolution=null;
+  const progressBar=document.getElementById('progressBar');
+  progressBar.style.width='0%';
 
+  outerLoop:
   for(let nContainer=nDesired;;nContainer++){
-    let found=false;
     for(let s=0;s<maxShuffle;s++){
+      progressBar.style.width=Math.round((s/maxShuffle)*100)+'%';
       const seq=shuffleArray(blocks);
       const containers=[];
       let remaining=seq.slice();
@@ -188,23 +190,23 @@ document.getElementById('computeBtn').onclick=()=>{
         remaining=remaining.filter(b=>!placedIds.has(b.id));
         containers.push(res);
       }
-      if(remaining.length===0){
+      // controlla che tutti i container siano >= minFill * maxWeight
+      const valid=containers.every(c=>c.usedWeight>=minFill*maxWeight);
+      if(remaining.length===0 && valid){
         bestSolution={containers,nContainer};
-        found=true;
-        break;
+        break outerLoop;
       }
     }
-    if(found) break;
   }
 
-  // Output
-  const pesoTotale = blocks.reduce((a,b)=>a+b.wt,0);
-  const pesoMedioDesiderato = pesoTotale / Math.ceil(pesoTotale/maxWeight);
-  let pesoMedioUsato = bestSolution.containers.reduce((a,c)=>a+c.usedWeight,0)/bestSolution.nContainer;
+  progressBar.style.width='100%';
+
+  const pesoMedioDesiderato = pesoTot / nDesired;
+  const pesoMedioUsato = bestSolution.containers.reduce((a,c)=>a+c.usedWeight,0)/bestSolution.nContainer;
 
   let out=`Blocchi totali: ${blocks.length}\n`;
-  out+=`Peso totale: ${pesoTotale.toFixed(2)} t\n`;
-  out+=`Numero container desiderati: ${Math.ceil(pesoTotale/maxWeight)} con peso medio di ${pesoMedioDesiderato.toFixed(3)} t\n`;
+  out+=`Peso totale: ${pesoTot.toFixed(2)} t\n`;
+  out+=`Numero container desiderati: ${nDesired} con peso medio di ${pesoMedioDesiderato.toFixed(3)} t\n`;
   out+=`Container usati: ${bestSolution.nContainer}, con peso medio di ${pesoMedioUsato.toFixed(3)} t\n`;
 
   bestSolution.containers.forEach((c,i)=>{
@@ -213,8 +215,11 @@ document.getElementById('computeBtn').onclick=()=>{
     out+=`\nContainer ${i+1} — blocchi: ${c.placed.length}, peso: ${c.usedWeight.toFixed(2)} t, % peso max: ${pct}%\n`;
     out+=`  IDs: ${ids.join(', ')}\n`;
   });
+
   document.getElementById('result').textContent=out;
 };
+
+document.getElementById('addBlock').onclick = ()=>addBlock();
 </script>
 </body>
 </html>
