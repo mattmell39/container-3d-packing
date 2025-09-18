@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Packing 3D Monte Carlo con gravità</title>
+<title>Packing 3D Monte Carlo</title>
 <style>
 body{margin:0;font-family:system-ui, sans-serif;background:#0f172a;color:#e2e8f0;padding:20px}
 h1{font-size:22px;margin-bottom:10px}
@@ -16,75 +16,90 @@ input{width:100%;padding:8px;border-radius:6px;border:1px solid #334155;backgrou
 .block-item{display:grid;grid-template-columns:50px repeat(4,1fr) 80px;gap:6px;align-items:end}
 button{cursor:pointer;padding:6px 10px;border-radius:6px;border:none;font-weight:600;background:#38bdf8;color:#0f172a}
 .result{background:#0f172a;border-radius:8px;padding:12px;margin-top:12px;white-space:pre-wrap;font-family:monospace}
-.progress-container{background:#334155;border-radius:6px;overflow:hidden;margin-top:10px}
-.progress-bar{height:16px;background:#38bdf8;width:0%;transition:width 0.1s;}
 </style>
 </head>
 <body>
-
-<h1>Software per la Dea Valentina</h1>
-<h3>(poi il titolo lo cambiamo!!!)
+<h1>Packing 3D testuale — Software per riempimento container</h1>
 
 <div class="card">
-<h2>Dimensioni container</h2>
-<div class="row">
-<div class="col"><label>Lunghezza (cm)</label><input id="contL" type="number" value="600"></div>
-<div class="col"><label>Larghezza (cm)</label><input id="contW" type="number" value="230"></div>
-<div class="col"><label>Altezza (cm)</label><input id="contH" type="number" value="230"></div>
-</div>
-<div class="row">
-<div class="col"><label>Margine (cm)</label><input id="margin" type="number" value="10"></div>
-<div class="col"><label>Peso max (t)</label><input id="maxWeight" type="number" value="27"></div>
-</div>
+  <h2>Dimensioni container</h2>
+  <div class="row">
+    <div class="col"><label>Lunghezza (cm)</label><input id="contL" type="number" value="600"></div>
+    <div class="col"><label>Larghezza (cm)</label><input id="contW" type="number" value="230"></div>
+    <div class="col"><label>Altezza (cm)</label><input id="contH" type="number" value="230"></div>
+  </div>
+  <div class="row">
+    <div class="col"><label>Margine (cm)</label><input id="margin" type="number" value="10"></div>
+    <div class="col"><label>Peso max (t)</label><input id="maxWeight" type="number" value="27"></div>
+  </div>
 </div>
 
 <div class="card">
   <h2>Blocchi</h2>
-
-  <!-- intestazioni colonne -->
-  <div class="block-item" style="font-weight:bold; opacity:0.8">
-    <div>ID</div>
-    <div>Lunghezza (cm)</div>
-    <div>Larghezza (cm)</div>
-    <div>Altezza (cm)</div>
-    <div>Peso (t)</div>
-    <div></div>
+  <div class="row">
+    <div class="col">ID</div>
+    <div class="col">Lunghezza</div>
+    <div class="col">Larghezza</div>
+    <div class="col">Altezza</div>
+    <div class="col">Peso</div>
+    <div class="col">Rimuovi</div>
   </div>
-
   <div id="blocksList" class="blocks-list"></div>
-  <button id="addBlock" style="margin-top:6px">+ Aggiungi blocco</button>
-  <button id="seed20" style="margin-top:6px">20 blocchi di esempio</button>
+  <button id="addBlock">+ Aggiungi blocco</button>
 </div>
 
-
-<div class="card">
-<h2>Monte Carlo</h2>
-<label>Numero simulazioni: <span id="simCountLabel">100</span></label>
-<input type="range" id="simCount" min="10" max="1000" value="100">
-<div class="progress-container">
-  <div class="progress-bar" id="progressBar"></div>
-</div>
+<div class="row" style="margin-top:6px">
+  <div class="col"><label>Numero massimo shuffle Monte Carlo</label><input id="maxShuffle" type="number" value="1000"></div>
 </div>
 
-<button id="computeBtn">Calcola packing 3D (Monte Carlo)</button>
-<div id="result" class="result">Premi "Calcola packing 3D" per vedere i risultati.</div>
+<button id="computeBtn">Calcola packing Monte Carlo</button>
+<div id="result" class="result">Premi "Calcola packing Monte Carlo" per vedere i risultati.</div>
 
 <script>
 let blockCounter=0;
 const blocksList = document.getElementById('blocksList');
+const initialBlocks=[
+{ id:3320, l:222,w:90,h:65,wt:3.03 },
+{ id:3321, l:235,w:152,h:127,wt:8.75 },
+{ id:3322, l:252,w:149,h:108,wt:8.89 },
+{ id:3323, l:223,w:167,h:64,wt:5.63 },
+{ id:3324, l:307,w:158,h:141,wt:15.26 },
+{ id:3325, l:235,w:157,h:168,wt:12.69 },
+{ id:3326, l:262,w:154,h:94,wt:7.71 },
+{ id:3327, l:260,w:148,h:100,wt:7.43 },
+{ id:3328, l:192,w:149,h:150,wt:9.85 },
+{ id:3329, l:274,w:146,h:163,wt:14.18 },
+{ id:3330, l:240,w:154,h:173,wt:13.82 },
+{ id:3331, l:268,w:146,h:133,wt:11.80 },
+{ id:3332, l:263,w:150,h:147,wt:12.99 },
+{ id:3333, l:226,w:163,h:90,wt:7.70 },
+{ id:3334, l:216,w:138,h:72,wt:4.71 },
+{ id:3335, l:233,w:159,h:123,wt:10.54 },
+{ id:3336, l:300,w:149,h:150,wt:14.19 },
+{ id:3337, l:306,w:106,h:115,wt:7.82 },
+{ id:3338, l:320,w:129,h:86,wt:8.14 },
+{ id:3339, l:253,w:149,h:132,wt:11.92 },
+{ id:3340, l:290,w:144,h:100,wt:5.76 },
+{ id:3341, l:314,w:160,h:160,wt:15.70 },
+{ id:3342, l:321,w:166,h:148,wt:16.33 },
+{ id:3343, l:200,w:157,h:103,wt:7.15 },
+{ id:3344, l:310,w:142,h:93,wt:9.46 },
+{ id:3345, l:222,w:134,h:107,wt:6.76 },
+{ id:3346, l:272,w:123,h:94,wt:6.52 }
+];
 
 function makeBlockRow(b){
-  const row = document.createElement('div'); 
+  const row=document.createElement('div');
   row.className='block-item';
   row.dataset.blockId=b.id;
-  const idDiv = document.createElement('div'); idDiv.textContent = 'B'+b.id;
-  const lInput = document.createElement('input'); lInput.type='number'; lInput.value=b.l;
-  const wInput = document.createElement('input'); wInput.type='number'; wInput.value=b.w;
-  const hInput = document.createElement('input'); hInput.type='number'; hInput.value=b.h;
-  const wtInput = document.createElement('input'); wtInput.type='number'; wtInput.value=b.wt;
-  const removeBtn = document.createElement('button'); removeBtn.textContent='Rimuovi';
-  removeBtn.onclick = ()=>row.remove();
-  row.append(idDiv, lInput, wInput, hInput, wtInput, removeBtn);
+  const idDiv=document.createElement('div'); idDiv.textContent='B'+b.id;
+  const lInput=document.createElement('input'); lInput.type='number'; lInput.value=b.l;
+  const wInput=document.createElement('input'); wInput.type='number'; wInput.value=b.w;
+  const hInput=document.createElement('input'); hInput.type='number'; hInput.value=b.h;
+  const wtInput=document.createElement('input'); wtInput.type='number'; wtInput.value=b.wt;
+  const removeBtn=document.createElement('button'); removeBtn.textContent='Rimuovi';
+  removeBtn.onclick=()=>row.remove();
+  row.append(idDiv,lInput,wInput,hInput,wtInput,removeBtn);
   return row;
 }
 
@@ -101,125 +116,104 @@ function readBlocks(){
   });
 }
 
-// genera 20 blocchi di esempio con le nuove dimensioni
-function seed20(){
+function seedInitialBlocks(){
   blocksList.innerHTML='';
   blockCounter=0;
-  for(let i=0;i<20;i++){
-    const l = 50 + Math.floor(Math.random()*111);   // 50-160 cm
-    const w = 50 + Math.floor(Math.random()*111);   // 50-160 cm
-    const h = 100 + Math.floor(Math.random()*251);  // 100-350 cm
-    const wt = (2 + Math.random()*6).toFixed(2);    // 2-8 t
-    addBlock(l,w,h,wt);
-  }
+  initialBlocks.forEach(b=>addBlock(b.l,b.w,b.h,b.wt));
 }
-
+seedInitialBlocks();
 document.getElementById('addBlock').onclick = ()=>addBlock();
-document.getElementById('seed20').onclick = seed20;
-seed20();
 
-const simSlider = document.getElementById('simCount');
-const simLabel = document.getElementById('simCountLabel');
-simSlider.oninput = ()=>simLabel.textContent = simSlider.value;
-const progressBar = document.getElementById('progressBar');
-
+// --- Funzioni di packing 3D e Monte Carlo ---
 function rotations(b){ return [[b.l,b.w,b.h],[b.l,b.h,b.w],[b.w,b.l,b.h],[b.w,b.h,b.l],[b.h,b.l,b.w],[b.h,b.w,b.l]]; }
-function shuffle(array){ for(let i=array.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [array[i], array[j]]=[array[j], array[i]]; } }
-
-function packContainerWithGravity(containerDims, maxWeight, blocks){
-  const placed=[]; 
-  let usedWeight=0, usedVol=0;
-  const freeSpaces=[{x:0,y:0,z:0,dx:containerDims.L,dy:containerDims.W,dz:containerDims.H}];
-
-  function canPlaceAtZ(free, dz){
-    return free.z===0 || placed.some(p=>p.z+p.dz===free.z && 
-      p.x < free.x+free.dx && p.x+p.dx > free.x &&
-      p.y < free.y+free.dy && p.y+p.dy > free.y);
-  }
-
+function fits(free,dims){ return dims[0]<=free.dx && dims[1]<=free.dy && dims[2]<=free.dz; }
+function splitFree(free,placed){
+  const res=[]; const fx=free.x,fy=free.y,fz=free.z,fdx=free.dx,fdy=free.dy,fdz=free.dz;
+  const bx=placed.dx,by=placed.dy,bz=placed.dz;
+  if(fdx-bx>0) res.push({x:fx+bx,y:fy,z:fz,dx:fdx-bx,dy:fdy,dz:fdz});
+  if(fdy-by>0) res.push({x:fx,y:fy+by,z:fz,dx:bx,dy:fdy-by,dz:fdz});
+  if(fdz-bz>0) res.push({x:fx,y:fy,z:fz+bz,dx:bx,dy:by,dz:fdz-bz});
+  return res;
+}
+function packContainer(containerDims,maxWeight,blocks){
+  const freeList=[{x:0,y:0,z:0,dx:containerDims.L,dy:containerDims.W,dz:containerDims.H}];
+  const placed=[]; let usedWeight=0;
   for(const b of blocks){
     let ok=false;
-    for(let fi=0;fi<freeSpaces.length && !ok;fi++){
-      const f = freeSpaces[fi];
-      const rots = rotations(b).sort(()=>Math.random()-0.5);
-      for(const r of rots){
+    for(let fi=0;fi<freeList.length && !ok;fi++){
+      const f=freeList[fi];
+      for(const r of rotations(b)){
         const [dx,dy,dz]=r;
-        if(!canPlaceAtZ(f,dz)) continue;
-        if(dx>f.dx || dy>f.dy || dz>f.dz) continue;
+        if(!fits(f,[dx,dy,dz])) continue;
         if(usedWeight+b.wt>maxWeight) continue;
         placed.push({block:b,x:f.x,y:f.y,z:f.z,dx,dy,dz});
-        usedWeight+=b.wt; usedVol+=dx*dy*dz;
-        freeSpaces.splice(fi,1);
-        freeSpaces.push({x:f.x+dx,y:f.y,z:f.z,dx:f.dx-dx,dy:dy,dz:dz});
-        freeSpaces.push({x:f.x,y:f.y+dy,z:f.z,dx:dx,dy:f.dy-dy,dz:dz});
-        freeSpaces.push({x:f.x,y:f.y,z:f.z+dz,dx:dx,dy:dy,dz:f.dz-dz});
-        ok=true; break;
+        usedWeight+=b.wt;
+        const newBoxes=splitFree(f,placed[placed.length-1]);
+        freeList.splice(fi,1); freeList.push(...newBoxes); ok=true; break;
       }
     }
   }
-
-  let maxX=0,maxY=0,maxZ=0;
-  for(const p of placed){ maxX=Math.max(maxX,p.x+p.dx); maxY=Math.max(maxY,p.y+p.dy); maxZ=Math.max(maxZ,p.z+p.dz); }
-  return {placed, usedWeight, usedVol, usedExtents:{L:maxX,W:maxY,H:maxZ}};
+  return {placed,usedWeight};
 }
 
-function monteCarloAsync(contDims, margin, maxWeight, blocks, simulations, callback){
-  const usable={L:contDims.L-2*margin,W:contDims.W-2*margin,H:contDims.H-2*margin};
-  let best=null;
-  let s=0;
-
-  function step(){
-    if(s>=simulations){ callback(best); return; }
-
-    let remaining = [...blocks];
-    shuffle(remaining);
-
-    const containers=[];
-    while(remaining.length>0){
-      const res=packContainerWithGravity(usable,maxWeight,remaining);
-      if(res.placed.length===0) break;
-      const placedIds=new Set(res.placed.map(p=>p.block.id));
-      remaining=remaining.filter(b=>!placedIds.has(b.id));
-      containers.push(res);
-    }
-
-    if(!best || containers.length<best.containers.length ||
-       (containers.length===best.containers.length && containers.reduce((a,c)=>a+c.usedVol,0) > best.containers.reduce((a,c)=>a+c.usedVol,0))){
-      best={containers, remaining};
-    }
-
-    s++;
-    progressBar.style.width=((s/simulations)*100)+'%';
-    setTimeout(step,0);
+function shuffleArray(arr){
+  const a=arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
   }
-
-  step();
+  return a;
 }
 
 document.getElementById('computeBtn').onclick=()=>{
   const contDims={L:+document.getElementById('contL').value,W:+document.getElementById('contW').value,H:+document.getElementById('contH').value};
   const margin=+document.getElementById('margin').value;
   const maxWeight=+document.getElementById('maxWeight').value;
+  const maxShuffle=+document.getElementById('maxShuffle').value;
   const blocks=readBlocks();
-  const sims=+simSlider.value;
-  progressBar.style.width='0%';
-  document.getElementById('result').textContent="Simulazioni in corso...";
-  monteCarloAsync(contDims,margin,maxWeight,blocks,sims,(res)=>{
-    const usableVol=(contDims.L-2*margin)*(contDims.W-2*margin)*(contDims.H-2*margin);
-    let out=`Blocchi totali: ${blocks.length}\nContainer necessari: ${res.containers.length}\n`;
-    if(res.remaining.length>0){
-      out+=`Impossibile posizionare ${res.remaining.length} blocchi: ${res.remaining.map(b=>'B'+b.id).join(', ')}\n`;
+  const pesoTot=blocks.reduce((a,b)=>a+b.wt,0);
+  let nDesired=Math.ceil(pesoTot/maxWeight);
+  let bestSolution=null;
+
+  for(let nContainer=nDesired;;nContainer++){
+    let found=false;
+    for(let s=0;s<maxShuffle;s++){
+      const seq=shuffleArray(blocks);
+      const containers=[];
+      let remaining=seq.slice();
+      while(remaining.length>0 && containers.length<nContainer){
+        const res=packContainer({L:contDims.L-2*margin,W:contDims.W-2*margin,H:contDims.H-2*margin},maxWeight,remaining);
+        if(res.placed.length===0) break;
+        const placedIds=new Set(res.placed.map(p=>p.block.id));
+        remaining=remaining.filter(b=>!placedIds.has(b.id));
+        containers.push(res);
+      }
+      if(remaining.length===0){
+        bestSolution={containers,nContainer};
+        found=true;
+        break;
+      }
     }
-    res.containers.forEach((c,i)=>{
-      const ids=c.placed.map(p=>'B'+p.block.id);
-      const percVol=(c.usedVol/usableVol*100).toFixed(1);
-      out+=`\nContainer ${i+1} — blocchi: ${c.placed.length}, peso: ${c.usedWeight.toFixed(2)} t, volume usato: ${c.usedVol.toLocaleString()} cm³ (${percVol}%)\n`;
-      const ext=c.usedExtents;
-      out+=`  Ingombro L×W×H: ${Math.round(ext.L)}×${Math.round(ext.W)}×${Math.round(ext.H)} cm\n`;
-      out+=`  IDs: ${ids.join(', ')}\n`;
-    });
-    document.getElementById('result').textContent=out;
+    if(found) break;
+  }
+
+  // Output
+  const pesoTotale = blocks.reduce((a,b)=>a+b.wt,0);
+  const pesoMedioDesiderato = pesoTotale / Math.ceil(pesoTotale/maxWeight);
+  let pesoMedioUsato = bestSolution.containers.reduce((a,c)=>a+c.usedWeight,0)/bestSolution.nContainer;
+
+  let out=`Blocchi totali: ${blocks.length}\n`;
+  out+=`Peso totale: ${pesoTotale.toFixed(2)} t\n`;
+  out+=`Numero container desiderati: ${Math.ceil(pesoTotale/maxWeight)} con peso medio di ${pesoMedioDesiderato.toFixed(3)} t\n`;
+  out+=`Container usati: ${bestSolution.nContainer}, con peso medio di ${pesoMedioUsato.toFixed(3)} t\n`;
+
+  bestSolution.containers.forEach((c,i)=>{
+    const ids=c.placed.map(p=>'B'+p.block.id);
+    const pct=Math.round(c.usedWeight/maxWeight*100);
+    out+=`\nContainer ${i+1} — blocchi: ${c.placed.length}, peso: ${c.usedWeight.toFixed(2)} t, % peso max: ${pct}%\n`;
+    out+=`  IDs: ${ids.join(', ')}\n`;
   });
+  document.getElementById('result').textContent=out;
 };
 </script>
 </body>
