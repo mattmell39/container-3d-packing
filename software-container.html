@@ -227,52 +227,52 @@ function colorForBlock(id){ const hue=(id*137)%360; return `hsl(${hue},70%,60%)`
 
 // --- Disegno container con 3 viste ---
 function drawContainer(container, contDims, containerIndex){
-  const canvasDiv=document.createElement('div');
-  canvasDiv.className='container-canvas';
+  const canvasDiv = document.createElement('div');
+  canvasDiv.className = 'container-canvas';
 
-  const title=document.createElement('div');
-  title.style.textAlign='center';
-  title.style.marginBottom='4px';
-  title.textContent=`Container ${containerIndex+1}`;
+  const title = document.createElement('div');
+  title.style.textAlign = 'center';
+  title.style.marginBottom = '4px';
+  title.textContent = `Container ${containerIndex+1}`;
   canvasDiv.appendChild(title);
 
-  const scale=2;
+  const scale = 2;
 
-  // Vista dall’alto (L×W)
-  const canvasTop=document.createElement('canvas');
-  canvasTop.width=contDims.L/scale;
-  canvasTop.height=contDims.W/scale;
-  const ctxT=canvasTop.getContext('2d');
-  ctxT.fillStyle='#334155';
+  // --- Vista dall’alto (L×W) ---
+  const canvasTop = document.createElement('canvas');
+  canvasTop.width = contDims.L/scale;
+  canvasTop.height = contDims.W/scale;
+  const ctxT = canvasTop.getContext('2d');
+  ctxT.fillStyle = '#334155';
   ctxT.fillRect(0,0,canvasTop.width,canvasTop.height);
   container.placed.forEach(p=>{
     const x=p.x/scale, y=p.y/scale, w=p.dx/scale, h=p.dy/scale;
-    ctxT.fillStyle=colorForBlock(p.block.id);
+    ctxT.fillStyle = colorForBlock(p.block.id);
     ctxT.fillRect(x,y,w,h);
-    ctxT.fillStyle='#0f172a';
-    ctxT.font='10px monospace';
-    ctxT.fillText(p.block.id,x+2,y+12);
+    ctxT.fillStyle = '#0f172a';
+    ctxT.font = '10px monospace';
+    ctxT.fillText(p.block.id, x+2, y+12);
   });
-  const lbl1=document.createElement('div');
+  const lbl1 = document.createElement('div');
   lbl1.style.textAlign='center';
   lbl1.textContent='Vista dall’alto (L×W)';
   canvasDiv.appendChild(lbl1);
   canvasDiv.appendChild(canvasTop);
 
-  // Vista laterale (L×H)
-  const canvasSide=document.createElement('canvas');
-  canvasSide.width=contDims.L/scale;
-  canvasSide.height=contDims.H/scale;
-  const ctxS=canvasSide.getContext('2d');
-  ctxS.fillStyle='#334155';
+  // --- Vista laterale (L×H) ---
+  const canvasSide = document.createElement('canvas');
+  canvasSide.width = contDims.L/scale;
+  canvasSide.height = contDims.H/scale;
+  const ctxS = canvasSide.getContext('2d');
+  ctxS.fillStyle = '#334155';
   ctxS.fillRect(0,0,canvasSide.width,canvasSide.height);
   container.placed.forEach(p=>{
     const x=p.x/scale, y=(contDims.H-p.z-p.dz)/scale, w=p.dx/scale, h=p.dz/scale;
-    ctxS.fillStyle=colorForBlock(p.block.id);
+    ctxS.fillStyle = colorForBlock(p.block.id);
     ctxS.fillRect(x,y,w,h);
-    ctxS.fillStyle='#0f172a';
-    ctxS.font='10px monospace';
-    ctxS.fillText(p.block.id,x+2,y+12);
+    ctxS.fillStyle = '#0f172a';
+    ctxS.font = '10px monospace';
+    ctxS.fillText(p.block.id, x+2, y+12);
   });
   const lbl2=document.createElement('div');
   lbl2.style.textAlign='center';
@@ -280,35 +280,40 @@ function drawContainer(container, contDims, containerIndex){
   canvasDiv.appendChild(lbl2);
   canvasDiv.appendChild(canvasSide);
 
-  // Vista frontale (W×H) specchiata con ordinamento per profondità
+  // --- Vista frontale (W×H) ---
   const canvasFront = document.createElement('canvas');
-  canvasFront.width = contDims.W / scale;
-  canvasFront.height = contDims.H / scale;
+  canvasFront.width = contDims.W/scale;
+  canvasFront.height = contDims.H/scale;
   const ctxF = canvasFront.getContext('2d');
   ctxF.fillStyle = '#334155';
-  ctxF.fillRect(0, 0, canvasFront.width, canvasFront.height);
+  ctxF.fillRect(0,0,canvasFront.width,canvasFront.height);
 
-  // Ordina i blocchi in base alla profondità (p.z) per la vista frontale
+  // Ordina i blocchi: prima per z crescente, poi y decrescente, poi x crescente
   container.placed
-    .slice() // copia per non modificare l'array originale
-    .sort((a, b) => b.z - a.z) // disegna prima i blocchi più vicini
-    .forEach(p => {
-      const x = (contDims.W - (p.y + p.dy)) / scale; // specchiatura orizzontale
-      const y = (contDims.H - p.z - p.dz) / scale;   // altezza inversa
-      const w = p.dy / scale;
-      const h = p.dz / scale;
+    .slice()
+    .sort((a,b)=>{
+      const eps = 1e-6;
+      if (Math.abs(a.z-b.z) > eps) return a.z - b.z; // z crescente
+      if (Math.abs(a.y-b.y) > eps) return b.y - a.y; // y decrescente
+      return a.x - b.x; // x crescente
+    })
+    .forEach(p=>{
+      const x = (contDims.W - (p.y+p.dy))/scale; // specchiatura orizzontale
+      const y = (contDims.H - p.z - p.dz)/scale;
+      const w = p.dy/scale;
+      const h = p.dz/scale;
 
       ctxF.fillStyle = colorForBlock(p.block.id);
-      ctxF.fillRect(x, y, w, h);
+      ctxF.fillRect(x,y,w,h);
 
-      ctxF.fillStyle = '#0f172a';
-      ctxF.font = '10px monospace';
-      ctxF.fillText(p.block.id, x + 2, y + 12);
+      ctxF.fillStyle='#0f172a';
+      ctxF.font='10px monospace';
+      ctxF.fillText(p.block.id,x+2,y+12);
     });
 
   const lbl3 = document.createElement('div');
-  lbl3.style.textAlign = 'center';
-  lbl3.textContent = 'Vista frontale (W×H)';
+  lbl3.style.textAlign='center';
+  lbl3.textContent='Vista frontale (W×H)';
   canvasDiv.appendChild(lbl3);
   canvasDiv.appendChild(canvasFront);
 
@@ -361,6 +366,70 @@ document.getElementById('computeBtn').onclick=async ()=>{
 };
 
 document.getElementById('addBlock').onclick = ()=>addBlock();
+</script>
+<!-- Drag & Drop per file Excel -->
+<div id="dropZone" 
+     style="margin-top:20px;padding:30px;border:2px dashed #38bdf8;
+            border-radius:10px;text-align:center;cursor:pointer;">
+  Trascina qui un file Excel (ID, lunghezza, larghezza, altezza, peso)
+</div>
+
+<!-- Libreria SheetJS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<script>
+const dropZone = document.getElementById("dropZone");
+
+// evidenzia il box quando il file entra
+dropZone.addEventListener("dragover", (e) => {
+  e.preventDefault();
+  dropZone.style.background = "#0f172a";
+});
+
+// ripristina stile quando esce
+dropZone.addEventListener("dragleave", () => {
+  dropZone.style.background = "";
+});
+
+// gestione del drop
+dropZone.addEventListener("drop", (e) => {
+  e.preventDefault();
+  dropZone.style.background = "";
+  const file = e.dataTransfer.files[0];
+  if (file && file.name.endsWith(".xlsx")) {
+    readExcel(file);
+  } else {
+    alert("⚠ Formato non valido. Usa un file .xlsx");
+  }
+});
+
+// funzione per leggere il file Excel e sostituire i blocchi
+function readExcel(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const data = new Uint8Array(e.target.result);
+    const workbook = XLSX.read(data, { type: "array" });
+    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+
+    // ci aspettiamo intestazione: ID, lunghezza, larghezza, altezza, peso
+    const dataRows = rows.slice(1).filter(r => r.length >= 5);
+
+    // Svuota la lista attuale
+    blocksList.innerHTML = "";
+
+    // Aggiungi blocchi dall'Excel
+    dataRows.forEach(r => {
+      const [id, l, w, h, wt] = r;
+      if (id && l && w && h && wt) {
+        addBlock(l, w, h, wt, id);
+      }
+    });
+
+    alert("✅ File Excel caricato: " + dataRows.length + " blocchi importati.");
+  };
+  reader.readAsArrayBuffer(file);
+}
 </script>
 </body>
 </html>
