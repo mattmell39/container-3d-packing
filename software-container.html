@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Packing 3D testuale</title>
+<title>Packing 3D testuale + grafica</title>
 <style>
 body{margin:0;font-family:system-ui, sans-serif;background:#0f172a;color:#e2e8f0;padding:20px}
 h1{font-size:22px;margin-bottom:10px}
@@ -18,6 +18,8 @@ button{cursor:pointer;padding:6px 10px;border-radius:6px;border:none;font-weight
 .progress-bar-container{background:#334155;border-radius:6px;overflow:hidden;margin-top:6px}
 .progress-bar{height:16px;background:#22c55e;width:0%}
 .result{background:#0f172a;border-radius:8px;padding:12px;margin-top:12px;white-space:pre-wrap;font-family:monospace}
+.canvas-container{display:flex;flex-direction:column;gap:16px;margin-top:16px}
+.container-canvas{background:#1e293b;padding:6px;border-radius:8px;text-align:center}
 </style>
 </head>
 <body>
@@ -62,12 +64,12 @@ button{cursor:pointer;padding:6px 10px;border-radius:6px;border:none;font-weight
 
 <button id="computeBtn">Calcola packing 3D</button>
 <div id="result" class="result">Premi "Calcola packing 3D" per vedere i risultati.</div>
+<div id="canvasContainer" class="canvas-container"></div>
 
 <script>
 let blockCounter=0;
 const blocksList = document.getElementById('blocksList');
 
-// blocchi hard-coded iniziali
 const initialBlocks=[
 {id:3320, l:222,w:90,h:65,wt:3.03},{id:3321, l:235,w:152,h:127,wt:8.75},
 {id:3322, l:252,w:149,h:108,wt:8.89},{id:3323, l:223,w:167,h:64,wt:5.63},
@@ -120,7 +122,6 @@ function readBlocks(){
 
 initialBlocks.forEach(b=>addBlock(b.l,b.w,b.h,b.wt,b.id));
 
-// Packing 3D
 function rotations(b){ return [[b.l,b.w,b.h],[b.l,b.h,b.w],[b.w,b.l,b.h],[b.w,b.h,b.l],[b.h,b.l,b.w],[b.h,b.w,b.l]]; }
 function fits(box,dims){ return dims[0]<=box.dx && dims[1]<=box.dy && dims[2]<=box.dz; }
 function splitFree(free,placed){
@@ -150,47 +151,32 @@ function packContainer(containerDims,maxWeight,blocks){
       }
     }
   }
-  return {placed,usedWeight};
+  let maxX=0,maxY=0,maxZ=0;
+  for(const p of placed){ maxX=Math.max(maxX,p.x+p.dx); maxY=Math.max(maxY,p.y+p.dy); maxZ=Math.max(maxZ,p.z+p.dz); }
+  return {placed,usedWeight,fillPerc:{L:maxX/containerDims.L*100,W:maxY/containerDims.W*100,H:maxZ/containerDims.H*100}};
 }
 
-function shuffleArray(arr){
-  const a=arr.slice();
-  for(let i=a.length-1;i>0;i--){
-    const j=Math.floor(Math.random()*(i+1));
-    [a[i],a[j]]=[a[j],a[i]];
-  }
-  return a;
-}
+function shuffleArray(arr){ const a=arr.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
 
-// Monte Carlo Packing
-document.getElementById('computeBtn').onclick=()=>{
-  const contDims={L:+document.getElementById('contL').value,W:+document.getElementById('contW').value,H:+document.getElementById('contH').value};
-  const margin=+document.getElementById('margin').value;
-  const maxWeight=+document.getElementById('maxWeight').value;
-  const maxShuffle=+document.getElementById('maxShuffle').value;
-  const blocks=readBlocks();
-  const pesoTot=blocks.reduce((a,b)=>a+b.wt,0);
-  let nDesired=Math.ceil(pesoTot/maxWeight);
-  const minFill=0.75; // 75%
+async function runMonteCarlo(contDims, margin, maxWeight, maxShuffle, blocks, nDesired, minFill, progressBar) {
   let bestSolution=null;
-  const progressBar=document.getElementById('progressBar');
-  progressBar.style.width='0%';
-
   outerLoop:
   for(let nContainer=nDesired;;nContainer++){
     for(let s=0;s<maxShuffle;s++){
-      progressBar.style.width=Math.round((s/maxShuffle)*100)+'%';
+      if (s % 10 === 0) {
+        progressBar.style.width=Math.round((s/maxShuffle)*100)+'%';
+        await new Promise(r=>setTimeout(r,0));
+      }
       const seq=shuffleArray(blocks);
       const containers=[];
       let remaining=seq.slice();
       while(remaining.length>0 && containers.length<nContainer){
-        const res=packContainer({L:contDims.L-2*margin,W:contDims.W-2*margin,H:contDims.H-2*margin},maxWeight,remaining);
+        const res=packContainer({L:contDims.L-margin,W:contDims.W-margin,H:contDims.H-margin},maxWeight,remaining);
         if(res.placed.length===0) break;
         const placedIds=new Set(res.placed.map(p=>p.block.id));
         remaining=remaining.filter(b=>!placedIds.has(b.id));
         containers.push(res);
       }
-      // controlla che tutti i container siano >= minFill * maxWeight
       const valid=containers.every(c=>c.usedWeight>=minFill*maxWeight);
       if(remaining.length===0 && valid){
         bestSolution={containers,nContainer};
@@ -198,25 +184,128 @@ document.getElementById('computeBtn').onclick=()=>{
       }
     }
   }
-
   progressBar.style.width='100%';
+  return bestSolution;
+}
+
+// --- Colore blocchi ---
+function colorForBlock(id){ const hue=(id*137)%360; return `hsl(${hue},70%,60%)`; }
+
+// --- Disegno container con 3 viste ---
+function drawContainer(container, contDims, containerIndex){
+  const canvasDiv=document.createElement('div');
+  canvasDiv.className='container-canvas';
+
+  const title=document.createElement('div');
+  title.style.textAlign='center';
+  title.style.marginBottom='4px';
+  title.textContent=`Container ${containerIndex+1}`;
+  canvasDiv.appendChild(title);
+
+  const scale=2;
+
+  // Vista dall’alto (L×W)
+  const canvasTop=document.createElement('canvas');
+  canvasTop.width=contDims.L/scale;
+  canvasTop.height=contDims.W/scale;
+  const ctxT=canvasTop.getContext('2d');
+  ctxT.fillStyle='#334155';
+  ctxT.fillRect(0,0,canvasTop.width,canvasTop.height);
+  container.placed.forEach(p=>{
+    const x=p.x/scale, y=p.y/scale, w=p.dx/scale, h=p.dy/scale;
+    ctxT.fillStyle=colorForBlock(p.block.id);
+    ctxT.fillRect(x,y,w,h);
+    ctxT.fillStyle='#0f172a';
+    ctxT.font='10px monospace';
+    ctxT.fillText(p.block.id,x+2,y+12);
+  });
+  const lbl1=document.createElement('div');
+  lbl1.style.textAlign='center';
+  lbl1.textContent='Vista dall’alto (L×W)';
+  canvasDiv.appendChild(lbl1);
+  canvasDiv.appendChild(canvasTop);
+
+  // Vista laterale (L×H)
+  const canvasSide=document.createElement('canvas');
+  canvasSide.width=contDims.L/scale;
+  canvasSide.height=contDims.H/scale;
+  const ctxS=canvasSide.getContext('2d');
+  ctxS.fillStyle='#334155';
+  ctxS.fillRect(0,0,canvasSide.width,canvasSide.height);
+  container.placed.forEach(p=>{
+    const x=p.x/scale, y=(contDims.H-p.z-p.dz)/scale, w=p.dx/scale, h=p.dz/scale;
+    ctxS.fillStyle=colorForBlock(p.block.id);
+    ctxS.fillRect(x,y,w,h);
+    ctxS.fillStyle='#0f172a';
+    ctxS.font='10px monospace';
+    ctxS.fillText(p.block.id,x+2,y+12);
+  });
+  const lbl2=document.createElement('div');
+  lbl2.style.textAlign='center';
+  lbl2.textContent='Vista laterale (L×H)';
+  canvasDiv.appendChild(lbl2);
+  canvasDiv.appendChild(canvasSide);
+
+  // Vista frontale (W×H)
+  const canvasFront=document.createElement('canvas');
+  canvasFront.width=contDims.W/scale;
+  canvasFront.height=contDims.H/scale;
+  const ctxF=canvasFront.getContext('2d');
+  ctxF.fillStyle='#334155';
+  ctxF.fillRect(0,0,canvasFront.width,canvasFront.height);
+  container.placed.forEach(p=>{
+    const x=p.y/scale, y=(contDims.H-p.z-p.dz)/scale, w=p.dy/scale, h=p.dz/scale;
+    ctxF.fillStyle=colorForBlock(p.block.id);
+    ctxF.fillRect(x,y,w,h);
+    ctxF.fillStyle='#0f172a';
+    ctxF.font='10px monospace';
+    ctxF.fillText(p.block.id,x+2,y+12);
+  });
+  const lbl3=document.createElement('div');
+  lbl3.style.textAlign='center';
+  lbl3.textContent='Vista frontale (W×H)';
+  canvasDiv.appendChild(lbl3);
+  canvasDiv.appendChild(canvasFront);
+
+  return canvasDiv;
+}
+
+document.getElementById('computeBtn').onclick=async ()=>{
+  const contDims={L:+document.getElementById('contL').value,W:+document.getElementById('contW').value,H:+document.getElementById('contH').value};
+  const margin=+document.getElementById('margin').value;
+  const maxWeight=+document.getElementById('maxWeight').value;
+  const maxShuffle=+document.getElementById('maxShuffle').value;
+  const blocks=readBlocks();
+  const pesoTot=blocks.reduce((a,b)=>a+b.wt,0);
+  let nDesired=Math.ceil(pesoTot/maxWeight);
+  const minFill=0.8;
+  const progressBar=document.getElementById('progressBar');
+  progressBar.style.width='0%';
+
+  const bestSolution = await runMonteCarlo(contDims, margin, maxWeight, maxShuffle, blocks, nDesired, minFill, progressBar);
 
   const pesoMedioDesiderato = pesoTot / nDesired;
   const pesoMedioUsato = bestSolution.containers.reduce((a,c)=>a+c.usedWeight,0)/bestSolution.nContainer;
 
-  let out=`Blocchi totali: ${blocks.length}\n`;
-  out+=`Peso totale: ${pesoTot.toFixed(2)} t\n`;
-  out+=`Numero container desiderati: ${nDesired} con peso medio di ${pesoMedioDesiderato.toFixed(3)} t\n`;
-  out+=`Container usati: ${bestSolution.nContainer}, con peso medio di ${pesoMedioUsato.toFixed(3)} t\n`;
+  let out=`Blocchi totali: ${blocks.length}\nPeso totale: ${pesoTot.toFixed(2)} t\nNumero container desiderati: ${nDesired} con peso medio di ${pesoMedioDesiderato.toFixed(3)} t\nContainer usati: ${bestSolution.nContainer}, con peso medio di ${pesoMedioUsato.toFixed(3)} t\n`;
 
   bestSolution.containers.forEach((c,i)=>{
     const ids=c.placed.map(p=>'B'+p.block.id);
-    const pct=Math.round(c.usedWeight/maxWeight*100);
+    const pct=((c.usedWeight/maxWeight)*100).toFixed(1);
+    const fill=c.fillPerc;
     out+=`\nContainer ${i+1} — blocchi: ${c.placed.length}, peso: ${c.usedWeight.toFixed(2)} t, % peso max: ${pct}%\n`;
+    out+=`  Riempimento L×W×H: ${fill.L.toFixed(1)}% × ${fill.W.toFixed(1)}% × ${fill.H.toFixed(1)}%\n`;
     out+=`  IDs: ${ids.join(', ')}\n`;
   });
 
   document.getElementById('result').textContent=out;
+
+  const canvasContainer=document.getElementById('canvasContainer');
+  canvasContainer.innerHTML='';
+  bestSolution.containers.forEach((c,i)=>{
+    const cDiv=drawContainer(c, contDims, i);
+    canvasContainer.appendChild(cDiv);
+  });
 };
 
 document.getElementById('addBlock').onclick = ()=>addBlock();
