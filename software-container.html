@@ -291,7 +291,7 @@ function drawContainer(container, contDims, containerIndex){
   // Ordina i blocchi in base alla profondità (p.z) per la vista frontale
   container.placed
     .slice() // copia per non modificare l'array originale
-    .sort((a, b) => a.z - b.z) // disegna prima i blocchi più lontani
+    .sort((a, b) => b.z - a.z) // disegna prima i blocchi più vicini
     .forEach(p => {
       const x = (contDims.W - (p.y + p.dy)) / scale; // specchiatura orizzontale
       const y = (contDims.H - p.z - p.dz) / scale;   // altezza inversa
