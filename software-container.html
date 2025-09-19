@@ -21,6 +21,16 @@ button{cursor:pointer;padding:6px 10px;border-radius:6px;border:none;font-weight
 .result{background:#0f172a;border-radius:8px;padding:12px;margin-top:12px;white-space:pre-wrap;font-family:monospace}
 .canvas-container{display:flex;flex-direction:column;gap:16px;margin-top:16px}
 .container-canvas{background:#1e293b;padding:6px;border-radius:8px;text-align:center}
+.block-item.header {
+  display: grid;
+  grid-template-columns: 60px repeat(4, 1fr) 80px;
+  gap: 6px;
+  font-weight: 600;
+  border-bottom: 1px solid #334155;
+  padding-bottom: 4px;
+  margin-bottom: 4px;
+  align-items: end;
+}
 </style>
 </head>
 <body>
@@ -41,13 +51,13 @@ button{cursor:pointer;padding:6px 10px;border-radius:6px;border:none;font-weight
 
 <div class="card">
   <h2>Blocchi</h2>
-  <div class="row">
-    <div class="col"><strong>ID</strong></div>
-    <div class="col"><strong>Lunghezza</strong></div>
-    <div class="col"><strong>Larghezza</strong></div>
-    <div class="col"><strong>Altezza</strong></div>
-    <div class="col"><strong>Peso</strong></div>
-    <div class="col"></div>
+  <div class="block-item header">
+    <div>ID</div>
+    <div>Lunghezza</div>
+    <div>Larghezza</div>
+    <div>Altezza</div>
+    <div>Peso</div>
+    <div></div>
   </div>
   <div id="blocksList" class="blocks-list"></div>
   <button id="addBlock" style="margin-top:6px">+ Aggiungi blocco</button>
