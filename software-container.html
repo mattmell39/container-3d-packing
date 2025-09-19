@@ -10,6 +10,7 @@ h1{font-size:22px;margin-bottom:10px}
 .card{background:#1e293b;border-radius:10px;padding:16px;margin-bottom:16px}
 label{display:block;font-size:13px;color:#94a3b8;margin-bottom:4px}
 input{width:100%;padding:8px;border-radius:6px;border:1px solid #334155;background:#0f172a;color:#f8fafc;margin-bottom:4px}
+input[type=range]{width:100%;}
 .row{display:flex;gap:10px;margin-bottom:8px}
 .col{flex:1}
 .blocks-list{display:flex;flex-direction:column;gap:8px;max-height:300px;overflow:auto}
@@ -57,6 +58,12 @@ button{cursor:pointer;padding:6px 10px;border-radius:6px;border:none;font-weight
   <div class="row">
     <div class="col"><label>Numero simulazioni</label><input id="maxShuffle" type="number" value="1000"></div>
   </div>
+  <div class="row">
+    <div class="col">
+      <label>Soglia minima peso (%) <span id="minFillValue">80</span></label>
+      <input id="minFillSlider" type="range" min="0" max="100" value="80">
+    </div>
+  </div>
   <div class="progress-bar-container">
     <div id="progressBar" class="progress-bar"></div>
   </div>
@@ -69,6 +76,9 @@ button{cursor:pointer;padding:6px 10px;border-radius:6px;border:none;font-weight
 <script>
 let blockCounter=0;
 const blocksList = document.getElementById('blocksList');
+const minFillSlider = document.getElementById('minFillSlider');
+const minFillValue = document.getElementById('minFillValue');
+minFillSlider.oninput = ()=>minFillValue.textContent = minFillSlider.value;
 
 const initialBlocks=[
 {id:3320, l:222,w:90,h:65,wt:3.03},{id:3321, l:235,w:152,h:127,wt:8.75},
@@ -159,32 +169,46 @@ function packContainer(containerDims,maxWeight,blocks){
 function shuffleArray(arr){ const a=arr.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
 
 async function runMonteCarlo(contDims, margin, maxWeight, maxShuffle, blocks, nDesired, minFill, progressBar) {
-  let bestSolution=null;
+  let bestSolution = null;
+  const resultDiv = document.getElementById('result');
+
   outerLoop:
-  for(let nContainer=nDesired;;nContainer++){
-    for(let s=0;s<maxShuffle;s++){
+  for (let nContainer = nDesired; nContainer <= nDesired + 5; nContainer++) {
+    resultDiv.textContent = `Cercando la soluzione con ${nContainer} container...`;
+    await new Promise(r => setTimeout(r, 0)); // consente l'aggiornamento della UI
+
+    for (let s = 0; s < maxShuffle; s++) {
       if (s % 10 === 0) {
-        progressBar.style.width=Math.round((s/maxShuffle)*100)+'%';
-        await new Promise(r=>setTimeout(r,0));
+        progressBar.style.width = Math.round((s / maxShuffle) * 100) + '%';
+        await new Promise(r => setTimeout(r, 0));
       }
-      const seq=shuffleArray(blocks);
-      const containers=[];
-      let remaining=seq.slice();
-      while(remaining.length>0 && containers.length<nContainer){
-        const res=packContainer({L:contDims.L-margin,W:contDims.W-margin,H:contDims.H-margin},maxWeight,remaining);
-        if(res.placed.length===0) break;
-        const placedIds=new Set(res.placed.map(p=>p.block.id));
-        remaining=remaining.filter(b=>!placedIds.has(b.id));
+
+      const seq = shuffleArray(blocks);
+      const containers = [];
+      let remaining = seq.slice();
+
+      while (remaining.length > 0 && containers.length < nContainer) {
+        const res = packContainer({ L: contDims.L - margin, W: contDims.W - margin, H: contDims.H - margin }, maxWeight, remaining);
+        if (res.placed.length === 0) break;
+        const placedIds = new Set(res.placed.map(p => p.block.id));
+        remaining = remaining.filter(b => !placedIds.has(b.id));
         containers.push(res);
       }
-      const valid=containers.every(c=>c.usedWeight>=minFill*maxWeight);
-      if(remaining.length===0 && valid){
-        bestSolution={containers,nContainer};
+
+      const valid = containers.every(c => c.usedWeight >= minFill * maxWeight);
+      if (remaining.length === 0 && valid) {
+        bestSolution = { containers, nContainer };
         break outerLoop;
       }
     }
   }
-  progressBar.style.width='100%';
+
+  progressBar.style.width = '100%';
+
+  if (!bestSolution) {
+    resultDiv.textContent = "⚠ Nessuna soluzione trovata. Prova ad abbassare la soglia di peso minimo %";
+  }
+
   return bestSolution;
 }
 
@@ -246,24 +270,35 @@ function drawContainer(container, contDims, containerIndex){
   canvasDiv.appendChild(lbl2);
   canvasDiv.appendChild(canvasSide);
 
-  // Vista frontale (W×H)
-  const canvasFront=document.createElement('canvas');
-  canvasFront.width=contDims.W/scale;
-  canvasFront.height=contDims.H/scale;
-  const ctxF=canvasFront.getContext('2d');
-  ctxF.fillStyle='#334155';
-  ctxF.fillRect(0,0,canvasFront.width,canvasFront.height);
-  container.placed.forEach(p=>{
-    const x=p.y/scale, y=(contDims.H-p.z-p.dz)/scale, w=p.dy/scale, h=p.dz/scale;
-    ctxF.fillStyle=colorForBlock(p.block.id);
-    ctxF.fillRect(x,y,w,h);
-    ctxF.fillStyle='#0f172a';
-    ctxF.font='10px monospace';
-    ctxF.fillText(p.block.id,x+2,y+12);
-  });
-  const lbl3=document.createElement('div');
-  lbl3.style.textAlign='center';
-  lbl3.textContent='Vista frontale (W×H)';
+  // Vista frontale (W×H) specchiata con ordinamento per profondità
+  const canvasFront = document.createElement('canvas');
+  canvasFront.width = contDims.W / scale;
+  canvasFront.height = contDims.H / scale;
+  const ctxF = canvasFront.getContext('2d');
+  ctxF.fillStyle = '#334155';
+  ctxF.fillRect(0, 0, canvasFront.width, canvasFront.height);
+
+  // Ordina i blocchi in base alla profondità (p.z) per la vista frontale
+  container.placed
+    .slice() // copia per non modificare l'array originale
+    .sort((a, b) => a.z - b.z) // disegna prima i blocchi più lontani
+    .forEach(p => {
+      const x = (contDims.W - (p.y + p.dy)) / scale; // specchiatura orizzontale
+      const y = (contDims.H - p.z - p.dz) / scale;   // altezza inversa
+      const w = p.dy / scale;
+      const h = p.dz / scale;
+
+      ctxF.fillStyle = colorForBlock(p.block.id);
+      ctxF.fillRect(x, y, w, h);
+
+      ctxF.fillStyle = '#0f172a';
+      ctxF.font = '10px monospace';
+      ctxF.fillText(p.block.id, x + 2, y + 12);
+    });
+
+  const lbl3 = document.createElement('div');
+  lbl3.style.textAlign = 'center';
+  lbl3.textContent = 'Vista frontale (W×H)';
   canvasDiv.appendChild(lbl3);
   canvasDiv.appendChild(canvasFront);
 
@@ -278,11 +313,20 @@ document.getElementById('computeBtn').onclick=async ()=>{
   const blocks=readBlocks();
   const pesoTot=blocks.reduce((a,b)=>a+b.wt,0);
   let nDesired=Math.ceil(pesoTot/maxWeight);
-  const minFill=0.8;
+  const minFill = +minFillSlider.value / 100;  
   const progressBar=document.getElementById('progressBar');
   progressBar.style.width='0%';
 
   const bestSolution = await runMonteCarlo(contDims, margin, maxWeight, maxShuffle, blocks, nDesired, minFill, progressBar);
+
+  const canvasContainer=document.getElementById('canvasContainer');
+  canvasContainer.innerHTML='';
+
+  if(!bestSolution){
+    document.getElementById('result').textContent = "⚠ Nessuna soluzione trovata. Prova a diminuire la soglia del peso minimo o ad incrementare il numero di simulazioni.";
+    progressBar.style.width='0%';
+    return;
+  }
 
   const pesoMedioDesiderato = pesoTot / nDesired;
   const pesoMedioUsato = bestSolution.containers.reduce((a,c)=>a+c.usedWeight,0)/bestSolution.nContainer;
@@ -300,8 +344,6 @@ document.getElementById('computeBtn').onclick=async ()=>{
 
   document.getElementById('result').textContent=out;
 
-  const canvasContainer=document.getElementById('canvasContainer');
-  canvasContainer.innerHTML='';
   bestSolution.containers.forEach((c,i)=>{
     const cDiv=drawContainer(c, contDims, i);
     canvasContainer.appendChild(cDiv);
