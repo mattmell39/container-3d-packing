@@ -176,16 +176,38 @@ function packContainer(containerDims,maxWeight,blocks){
   return {placed,usedWeight,fillPerc:{L:maxX/containerDims.L*100,W:maxY/containerDims.W*100,H:maxZ/containerDims.H*100}};
 }
 
-function shuffleArray(arr){ const a=arr.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+// Generatore pseudo-random con seed (LCG)
+function seededRNG(seed) {
+  let m = 0x80000000; // 2^31
+  let a = 1103515245;
+  let c = 12345;
+  let state = seed ? seed : Math.floor(Math.random() * m);
+  return function() {
+    state = (a * state + c) % m;
+    return state / m;
+  };
+}
 
-async function runMonteCarlo(contDims, margin, maxWeight, maxShuffle, blocks, nDesired, minFill, progressBar) {
+// Shuffle deterministico con generatore
+function shuffleArraySeeded(arr, rng) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// Monte Carlo con shuffle deterministico
+async function runMonteCarlo(contDims, margin, maxWeight, maxShuffle, blocks, nDesired, minFill, progressBar, seed=1234) {
+  const rng = seededRNG(seed); // generatore con seed fisso
   let bestSolution = null;
   const resultDiv = document.getElementById('result');
 
   outerLoop:
   for (let nContainer = nDesired; nContainer <= nDesired + 5; nContainer++) {
     resultDiv.textContent = `Cercando la soluzione con ${nContainer} container...`;
-    await new Promise(r => setTimeout(r, 0)); // consente l'aggiornamento della UI
+    await new Promise(r => setTimeout(r, 0));
 
     for (let s = 0; s < maxShuffle; s++) {
       if (s % 10 === 0) {
@@ -193,7 +215,7 @@ async function runMonteCarlo(contDims, margin, maxWeight, maxShuffle, blocks, nD
         await new Promise(r => setTimeout(r, 0));
       }
 
-      const seq = shuffleArray(blocks);
+      const seq = shuffleArraySeeded(blocks, rng);
       const containers = [];
       let remaining = seq.slice();
 
